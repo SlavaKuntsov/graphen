@@ -23,7 +23,7 @@ public class GraphController(
 
         // 2. Сохраняем физически на диск (для демонстрации)
         // В продакшене лучше возвращать .zip архив или выводить в отдельную папку
-        var outputDir = Path.Combine(env.ContentRootPath, "GeneratedOutput", graph.ProjectName ?? "MyProject");
+        var outputDir = Path.Combine(env.ContentRootPath, "..", "..", "GeneratedOutput", graph.ProjectName ?? "MyProject");
         if (Directory.Exists(outputDir)) Directory.Delete(outputDir, true);
         
         foreach (var file in files)

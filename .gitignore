@@ -371,3 +371,6 @@ FodyWeavers.xsd
 .agents/
 .agent/
 skills-lock.json
+
+# App generation
+src/GeneratedOutput/
