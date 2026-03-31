@@ -13,7 +13,7 @@ public class GraphController(
     IWebHostEnvironment env) : ControllerBase
 {
     [HttpPost("generate")]
-    public IActionResult GenerateModels([FromBody] ProjectGraph graph)
+    public IActionResult GenerateModels([FromBody] ProjectGraph graph, CancellationToken ct = default)
     {
         logger.LogInformation("Received graph for project: {ProjectName}", graph.ProjectName);
         logger.LogInformation("Total Nodes: {NodesCount}, Total Edges: {EdgesCount}", graph.Nodes.Count, graph.Edges.Count);
