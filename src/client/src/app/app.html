@@ -1,0 +1,199 @@
+<div class="app-layout">
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-brand">
+      <span class="brand-icon">◆</span>
+      <h1>Graphen</h1>
+      <span class="brand-tag">Visual API Generator</span>
+    </div>
+
+    <div class="header-controls">
+      <div class="path-group">
+        <label for="projectPath">Путь к проекту</label>
+        <input
+          id="projectPath"
+          type="text"
+          placeholder="C:\path\to\project"
+          [ngModel]="projectPath()"
+          (ngModelChange)="projectPath.set($event)"
+          (keydown.enter)="onLoad()"
+        />
+      </div>
+      <button class="btn btn-primary" (click)="onLoad()" [disabled]="isLoading()">
+        @if (isLoading()) {
+          <span class="spinner"></span>
+        } @else {
+          ▶ Загрузить
+        }
+      </button>
+      <button class="btn btn-outline" (click)="onInitEmpty()">
+        + Пустой граф
+      </button>
+    </div>
+  </header>
+
+  <!-- Main area -->
+  <div class="main-content">
+    <!-- Toolbar -->
+    <aside class="toolbar">
+      <div class="toolbar-section">
+        <h3>Добавить ноду</h3>
+        <div class="add-node-form">
+          <input
+            type="text"
+            placeholder="Имя ноды"
+            [ngModel]="addNodeName()"
+            (ngModelChange)="addNodeName.set($event)"
+          />
+          <div class="node-type-buttons">
+            @for (nt of nodeTypes; track nt.value) {
+              <button
+                class="btn-node-type"
+                [class.active]="addNodeType() === nt.value"
+                (click)="addNodeType.set(nt.value)"
+                [title]="nt.label"
+              >
+                {{ nt.icon }} {{ nt.label }}
+              </button>
+            }
+          </div>
+          <button class="btn btn-accent" (click)="onAddNode()">
+            + Добавить
+          </button>
+        </div>
+      </div>
+
+      <div class="toolbar-section">
+        <h3>Проект</h3>
+        <div class="project-info">
+          <label for="projectName">Имя проекта</label>
+          <input
+            id="projectName"
+            type="text"
+            [ngModel]="projectName()"
+            (ngModelChange)="projectName.set($event)"
+          />
+        </div>
+        <button
+          class="btn btn-generate"
+          (click)="onGenerate()"
+          [disabled]="isLoading()"
+        >
+          @if (isLoading()) {
+            <span class="spinner"></span>
+          } @else {
+            ⚙ Сгенерировать код
+          }
+        </button>
+      </div>
+    </aside>
+
+    <!-- Rete Canvas -->
+    <div class="canvas-wrapper">
+      <div #reteContainer class="rete-container"></div>
+
+      @if (!projectName()) {
+        <div class="canvas-placeholder">
+          <div class="placeholder-content">
+            <span class="placeholder-icon">◆</span>
+            <h2>Graphen Editor</h2>
+            <p>Укажите путь к проекту и нажмите «Загрузить»,<br/>или создайте пустой граф</p>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Node Editor Sidebar -->
+    @if (sidebarOpen()) {
+      <aside class="sidebar" role="complementary">
+        <div class="sidebar-header">
+          <h3>Свойства ноды</h3>
+          <button class="btn-close" (click)="closeSidebar()" aria-label="Закрыть">✕</button>
+        </div>
+
+        <div class="sidebar-body">
+          <div class="form-field">
+            <label for="nodeName">Имя</label>
+            <input
+              id="nodeName"
+              type="text"
+              [ngModel]="selectedNodeName()"
+              (ngModelChange)="selectedNodeName.set($event)"
+            />
+          </div>
+
+          @if (selectedNodeDescription() !== undefined && selectedNode()?.label?.startsWith('Controller')) {
+            <div class="form-field">
+              <label for="nodeDesc">Описание</label>
+              <textarea
+                id="nodeDesc"
+                rows="3"
+                [ngModel]="selectedNodeDescription()"
+                (ngModelChange)="selectedNodeDescription.set($event)"
+              ></textarea>
+            </div>
+          }
+
+          @if (selectedNode()?.label?.startsWith('Command') || selectedNode()?.label?.startsWith('Query')) {
+            <div class="form-field">
+              <label for="nodeReturn">Return Type</label>
+              <input
+                id="nodeReturn"
+                type="text"
+                [ngModel]="selectedNodeReturnType()"
+                (ngModelChange)="selectedNodeReturnType.set($event)"
+              />
+            </div>
+          }
+
+          @if (selectedNode()?.label?.startsWith('Action')) {
+            <div class="form-field">
+              <label for="nodeVerb">HTTP Verb</label>
+              <select
+                id="nodeVerb"
+                [ngModel]="selectedNodeHttpVerb()"
+                (ngModelChange)="selectedNodeHttpVerb.set($event)"
+              >
+                <option value="Get">GET</option>
+                <option value="Post">POST</option>
+                <option value="Put">PUT</option>
+                <option value="Delete">DELETE</option>
+                <option value="Patch">PATCH</option>
+              </select>
+            </div>
+          }
+
+          @if (!selectedNode()?.label?.startsWith('Controller')) {
+            <div class="form-field">
+              <label for="nodeExt">Расширение генерации</label>
+              <select
+                id="nodeExt"
+                [ngModel]="selectedNodeExtension()"
+                (ngModelChange)="selectedNodeExtension.set($event)"
+              >
+                <option value=".g.cs">.g.cs (перезаписываемый)</option>
+                <option value=".cs">.cs (с partial stub)</option>
+              </select>
+            </div>
+          }
+
+          <div class="sidebar-actions">
+            <button class="btn btn-primary" (click)="onApplyNodeChanges()">
+              ✓ Применить
+            </button>
+            <button class="btn btn-danger" (click)="onDeleteNode()">
+              ✕ Удалить ноду
+            </button>
+          </div>
+        </div>
+      </aside>
+    }
+  </div>
+
+  <!-- Toast -->
+  @if (showToast()) {
+    <div class="toast" [class.toast-success]="toastType() === 'success'" [class.toast-error]="toastType() === 'error'">
+      {{ toastMessage() }}
+    </div>
+  }
+</div>

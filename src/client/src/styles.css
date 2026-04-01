@@ -1,0 +1,69 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  --bg-primary: #0a0b0e;
+  --bg-secondary: #111318;
+  --bg-tertiary: #181b22;
+  --bg-elevated: #1e2128;
+  --bg-glass: rgba(22, 25, 33, 0.85);
+
+  --accent: #6c5ce7;
+  --accent-bright: #a388ee;
+  --accent-dim: #4a3fb0;
+  --success: #00d68f;
+  --danger: #ff4757;
+  --warning: #ffc048;
+
+  --text-primary: #e8e9ed;
+  --text-secondary: #8b8fa3;
+  --text-muted: #565a6e;
+
+  --border: rgba(255, 255, 255, 0.06);
+  --border-bright: rgba(255, 255, 255, 0.12);
+
+  --radius: 10px;
+  --radius-sm: 6px;
+
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 48px rgba(0, 0, 0, 0.6);
+
+  --font-body: 'Manrope', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --header-h: 62px;
+  --toolbar-w: 260px;
+  --sidebar-w: 320px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  font-family: var(--font-body);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+input, select, textarea, button {
+  font-family: inherit;
+}
+
+::selection {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
