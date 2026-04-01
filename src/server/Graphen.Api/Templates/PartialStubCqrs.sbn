@@ -1,0 +1,18 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using {{ project_name }}.DTOs;
+
+namespace {{ project_name }}.{{ folder }};
+
+public sealed partial class {{ name }}
+{
+    public sealed partial class Handler
+    {
+        private partial Task<{{ return_type }}> HandleInternalAsync({{ suffix }} request, CancellationToken ct)
+        {
+            // TODO: Реализуйте вашу бизнес-логику здесь
+            throw new NotImplementedException();
+        }
+    }
+}

@@ -1,0 +1,37 @@
+using Microsoft.AspNetCore.Mvc;
+using MediatR;
+using {{ project_name }}.Commands;
+using {{ project_name }}.Queries;
+using {{ project_name }}.DTOs;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace {{ project_name }}.Controllers;
+
+/// <summary>
+/// {{ description }}
+/// </summary>
+/// <param name="mediator"></param>
+[ApiController]
+[Route("api/[controller]/[action]")]
+public sealed partial class {{ name }}Controller(IMediator mediator) : ControllerBase
+{
+    {{~ for action in actions ~}}
+
+    [Http{{ action.verb }}]
+    {{~ if action.is_cqrs ~}}
+    public async Task<IActionResult> {{ action.name }}([From{{ if action.verb == "Get" }}Query{{ else }}Body{{ end }}] {{ action.request_type }} request, CancellationToken ct = default)
+    {
+        var result = await mediator.Send(request, ct);
+        return Ok(result);
+    }
+    {{~ else if action.generate_cs ~}}
+    public partial Task<IActionResult> {{ action.name }}([From{{ if action.verb == "Get" }}Query{{ else }}Body{{ end }}] {{ action.request_type }} request, CancellationToken ct = default);
+    {{~ else ~}}
+    public async Task<IActionResult> {{ action.name }}([From{{ if action.verb == "Get" }}Query{{ else }}Body{{ end }}] {{ action.request_type }} request, CancellationToken ct = default)
+    {
+        throw new NotImplementedException("Укажите generateFileExtension = \".cs\" для генерации файла реализации");
+    }
+    {{~ end ~}}
+    {{~ end ~}}
+}
