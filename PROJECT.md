@@ -14,7 +14,7 @@
 |------------|------------------------------|----------|
 | Frontend   | Angular (планируется)        | 20+      |
 | Backend    | ASP.NET Core Web API         | .NET 10  |
-| Шаблоны    | Scriban                      | 7.0.6    |
+| Шаблоны    | Scriban (файлы `.sbn`)       | 7.0.6    |
 | API Docs   | OpenAPI + Scalar             | —        |
 | Будущее    | Roslyn (Microsoft.CodeAnalysis) | —     |
 
@@ -38,14 +38,15 @@
 │                   BACKEND (ASP.NET Core)                 │
 │                                                         │
 │   GraphController                                       │
-│     └─ ICodeGeneratorService                            │
-│          └─ ScribanCodeGeneratorService                  │
-│               ├─ Парсинг графа (Nodes + Edges)          │
-│               ├─ Генерация Controllers (.g.cs)          │
-│               ├─ Генерация Commands / Queries (.g.cs)   │
-│               └─ Генерация DTOs (.g.cs)                 │
+│     ├─ POST /generate  → скаффолдинг + генерация        │
+│     └─ GET  /load      → загрузка graphen.json          │
 │                                                         │
-│   Результат: файлы в src/GeneratedOutput/{ProjectName}/ │
+│   Services:                                             │
+│     ├─ ITemplateService        → загрузка .sbn шаблонов │
+│     ├─ ICodeGeneratorService   → генерация .g.cs файлов │
+│     └─ IProjectScaffoldService → dotnet new (CLI)       │
+│                                                         │
+│   Результат: файлы в целевом проекте + graphen.json     │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -58,37 +59,93 @@ graphen/
 │   │   ├── Graphen.sln
 │   │   └── Graphen.Api/
 │   │       ├── Controllers/
-│   │       │   └── GraphController.cs          # Единственный эндпоинт: POST /api/graph/generate
+│   │       │   └── GraphController.cs          # POST /generate, GET /load
 │   │       ├── Models/
-│   │       │   ├── ProjectGraph.cs             # Корневая модель графа (ProjectName, Nodes, Edges)
-│   │       │   ├── Node.cs                     # Нода: Id, Type, Position, Properties (Dictionary)
-│   │       │   ├── Edge.cs                     # Ребро: SourceNodeId → TargetNodeId (+ Handles)
-│   │       │   └── GeneratedFile.cs            # Результат генерации: FileName, Content, RelativePath
+│   │       │   ├── ProjectGraph.cs             # Корневая модель (ProjectName, TargetPath, Nodes, Edges)
+│   │       │   ├── GraphenProject.cs           # Модель graphen.json (Version, Graph, LastGenerated)
+│   │       │   ├── Node.cs                     # Нода: Id, Type, Position, Properties
+│   │       │   ├── Edge.cs                     # Ребро: SourceNodeId → TargetNodeId
+│   │       │   └── GeneratedFile.cs            # Результат: FileName, Content, RelativePath
 │   │       ├── Services/
+│   │       │   ├── ITemplateService.cs         # Загрузка Scriban-шаблонов
+│   │       │   ├── TemplateService.cs          # Реализация с кешированием
 │   │       │   ├── ICodeGeneratorService.cs    # Контракт генератора
-│   │       │   └── ScribanCodeGeneratorService.cs  # Реализация через Scriban-шаблоны
+│   │       │   ├── ScribanCodeGeneratorService.cs  # Генерация через шаблоны
+│   │       │   ├── IProjectScaffoldService.cs  # Контракт скаффолдинга
+│   │       │   └── DotnetCliScaffoldService.cs # Создание проекта через dotnet CLI
+│   │       ├── Templates/                      # Scriban-шаблоны (.sbn)
+│   │       │   ├── Controller.sbn
+│   │       │   ├── CqrsHandler.sbn
+│   │       │   ├── RequestDto.sbn
+│   │       │   └── Program.sbn                 # Шаблон Program.cs для целевого проекта
 │   │       └── Program.cs
 │   │
-│   ├── client/                                 # (планируется) Angular-фронтенд с визуальным редактором
+│   ├── client/                                 # (планируется) Angular-фронтенд
 │   │
-│   └── GeneratedOutput/                        # Сюда пишется результат генерации (в .gitignore)
+│   └── GeneratedOutput/                        # Дефолтный вывод (в .gitignore)
 │       └── {ProjectName}/
-│           ├── Controllers/
-│           ├── Commands/
-│           ├── Queries/
-│           └── DTOs/
+│           ├── graphen.json                    # Состояние графа
+│           ├── {ProjectName}.sln
+│           └── {ProjectName}/
+│               ├── Controllers/  (.g.cs)
+│               ├── Commands/     (.g.cs)
+│               ├── Queries/      (.g.cs)
+│               └── DTOs/         (.g.cs)
 │
 └── PROJECT.md                                  # ← Этот файл
 ```
 
-## Модель данных (JSON-контракт)
+## API Endpoints
+
+### `POST /api/graph/generate`
+Принимает `ProjectGraph` (JSON), генерирует код. Если целевая папка пуста — сначала создаёт базовый .NET проект через `dotnet new`.
+
+**Request body:**
+```json
+{
+  "projectName": "MyApi",
+  "targetPath": null,
+  "nodes": [...],
+  "edges": [...]
+}
+```
+- `targetPath: null` → используется `src/GeneratedOutput/{projectName}/`
+- `targetPath: "C:/projects/my-api"` → генерация в указанную папку
+
+**Response:**
+```json
+{
+  "message": "Генерация успешно завершена!",
+  "nodesProcessed": 3,
+  "filesCreated": 5,
+  "outputPath": "...",
+  "graphenJson": "...",
+  "filesData": [...]
+}
+```
+
+### `GET /api/graph/load?path=...`
+Загружает сохранённый граф из `graphen.json`.
+
+## Модель данных
 
 ### ProjectGraph
 ```json
 {
   "projectName": "string",
+  "targetPath": "string | null",
   "nodes": [Node],
   "edges": [Edge]
+}
+```
+
+### GraphenProject (graphen.json)
+```json
+{
+  "version": "1.0",
+  "projectName": "string",
+  "lastGenerated": "ISO 8601",
+  "graph": { ProjectGraph }
 }
 ```
 
@@ -114,14 +171,14 @@ graphen/
 ```json
 {
   "id": "string",
-  "sourceNodeId": "string (ID ноды-источника)",
-  "sourceHandle": "string (порт/пин на ноде)",
-  "targetNodeId": "string (ID ноды-приёмника)",
-  "targetHandle": "string (порт/пин на ноде)"
+  "sourceNodeId": "string",
+  "sourceHandle": "string",
+  "targetNodeId": "string",
+  "targetHandle": "string"
 }
 ```
 
-## Типы нод (Node Types)
+## Типы нод
 
 | Тип           | Что генерирует                                      | Ключевые Properties             |
 |---------------|-----------------------------------------------------|---------------------------------|
@@ -130,30 +187,54 @@ graphen/
 | `CqrsQuery`   | Sealed class с record Query + Handler               | name, returnType, httpVerb      |
 | `Action`      | Метод в контроллере + Request DTO                   | name/methodName, httpVerb, route|
 
-## Текущее состояние (MVP)
+## Скаффолдинг
+
+При генерации в пустую папку автоматически создаётся:
+1. `dotnet new sln` — solution
+2. `dotnet new webapi` — проект с контроллерами
+3. `dotnet add package MediatR` — зависимость
+4. Перезапись `Program.cs` шаблоном Graphen
+5. Удаление дефолтного `WeatherForecast`
+
+## Стратегия генерации кода
+
+### Правило файлов
+- **`.g.cs`** — генерируемые файлы, **перезаписываются** при каждой генерации
+- **`.cs`** (без `.g.`) — пользовательский код, **никогда не трогается**
+
+### Partial Classes
+```
+CreateUser.g.cs  → record Command, базовая структура (перегенерируется)
+CreateUser.cs    → Handler с бизнес-логикой (пишется руками, неприкосновенен)
+```
+
+### CRUD vs Пользовательский код
+- **Простые CRUD**: полностью автоматизируются через связь Command → Entity (планируется)
+- **Сложная логика**: генерируется заглушка `.cs` с `throw new NotImplementedException()`
+- При повторной генерации `.cs` файл **создаётся только если его ещё нет**
+
+## Текущее состояние
 
 ### Реализовано ✅
-- [x] Бэкенд: приём JSON-графа через POST `/api/graph/generate`
-- [x] Генерация контроллеров через Scriban-шаблоны (partial class, primary constructor)
-- [x] Генерация CQRS-команд и запросов (sealed class + record + Handler)
+- [x] POST `/api/graph/generate` — генерация кода по графу
+- [x] GET `/api/graph/load` — загрузка graphen.json
+- [x] Scriban-шаблоны в отдельных .sbn файлах
+- [x] TemplateService с кешированием
+- [x] Скаффолдинг через dotnet CLI (solution + webapi + MediatR)
+- [x] graphen.json — сохранение/загрузка состояния графа
+- [x] Опциональный targetPath (дефолт: GeneratedOutput)
+- [x] Генерация контроллеров (partial, primary constructor, XML-docs)
+- [x] Генерация CQRS Commands/Queries (sealed class + record + Handler)
 - [x] Генерация Request DTO для Action-нод
 - [x] Гибкий поиск имён (name → className → methodName)
-- [x] XML-документация в сгенерированном коде
-- [x] Поддержка HTTP-методов (GET → FromQuery, остальные → FromBody)
-- [x] Вывод результата в `src/GeneratedOutput/`
 
 ### Планируется 🔜
-- [ ] **Frontend**: Angular-приложение с визуальным редактором графов (Rete.js / jsPlumb / ngx-graph)
-- [ ] Новые типы нод: Middleware, Entity, DbContext, Service, DTO-поля
-- [ ] Генерация Program.cs (DI-регистрация, pipeline)
-- [ ] Генерация Entity + DbContext через Scriban
-- [ ] Roslyn-интеграция: модификация существующего кода (добавление методов в контроллер)
-- [ ] Выгрузка результата как .zip-архив
-- [ ] Валидация графа (нельзя подключить Handler напрямую к Program.cs)
-- [ ] Синхронизация графа с существующей директорией
-
-## Философия генерации кода
-1. **Partial classes** — сгенерированный код отделяется от ручного. Файлы имеют суффикс `.g.cs`.
-2. **Scriban для новых файлов** — быстро, безопасно, предсказуемо.
-3. **Roslyn для существующих файлов** (будущее) — парсинг AST, точечная вставка, сохранение форматирования.
-4. **Граф = единственный источник истины** — всегда можно перегенерировать весь проект заново.
+- [ ] **Frontend**: Angular + визуальный редактор графов (Rete.js v2)
+- [ ] Новые типы нод: Entity (с полями), Middleware, DbContext, Service
+- [ ] CRUD-автогенерация: CrudCreate/Read/Update/Delete → полный Handler
+- [ ] Генерация Entity + EF Core конфигурации
+- [ ] Roslyn-интеграция: модификация существующего кода
+- [ ] Обратный парсинг: код → граф (импорт существующего проекта)
+- [ ] Выгрузка как .zip-архив
+- [ ] Валидация графа
+- [ ] AI-ассистент в редакторе
