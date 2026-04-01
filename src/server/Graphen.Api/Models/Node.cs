@@ -2,21 +2,41 @@ using System.Text.Json.Serialization;
 
 namespace Graphen.Api.Models;
 
-public class Node
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum NodeType
 {
-    public string Id { get; set; } = Guid.NewGuid().ToString();
-    
-    // Тип ноды, например: "Controller", "Route", "CqrsCommand", "CqrsQuery", "Handler"
-    public string Type { get; set; } = string.Empty;
-    
-    // Координаты для редактора (бэкенд их просто хранит, чтобы отдавать обратно)
-    public Position Position { get; set; } = new();
-    
-    // Всякие метаданные: Имя контроллера, настройки параметров и т.д.
-    public Dictionary<string, object> Properties { get; set; } = new();
+    Controller,
+    CqrsCommand,
+    CqrsQuery,
+    Action
 }
 
-public class Position
+public class Node
+{
+    public string Id { get; set; } = string.Empty;
+    
+    // Тип ноды, например: Controller, CqrsCommand, CqrsQuery, Action
+    public NodeType Type { get; set; }
+    
+    // Координаты на холсте
+    public Position Position { get; set; }
+    
+    // Строго типизированные метаданные ноды
+    public NodeProperties Properties { get; set; } = new();
+}
+
+public class NodeProperties
+{
+    public string? ClassName { get; set; }
+    public string? Description { get; set; }
+    public string? Name { get; set; }
+    public string? ReturnType { get; set; }
+    public string? HttpVerb { get; set; }
+    public string? MethodName { get; set; }
+    public string? GenerateFileExtension { get; set; }
+}
+
+public struct Position
 {
     public double X { get; set; }
     public double Y { get; set; }
