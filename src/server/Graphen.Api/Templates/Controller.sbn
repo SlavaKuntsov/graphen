@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MediatR;
-using {{ project_name }}.Commands;
-using {{ project_name }}.Queries;
+using {{ project_name }}.Handlers.Commands;
+using {{ project_name }}.Handlers.Queries;
 using {{ project_name }}.DTOs;
 using System.Threading;
 using System.Threading.Tasks;

@@ -17,7 +17,7 @@ public class ScribanCodeGeneratorService(ITemplateService templateService) : ICo
 
         // --- 1. Генерация Контроллеров ---
         var controllerTemplate = templateService.GetTemplate("Controller");
-        var partialStubActionTemplate = templateService.GetTemplate("PartialStubAction");
+        var partialStubControllerTemplate = templateService.GetTemplate("PartialStubController");
         var controllers = graph.Nodes.Where(n => n.Type == NodeType.Controller).ToList();
 
         foreach (var controllerNode in controllers)
@@ -58,7 +58,7 @@ public class ScribanCodeGeneratorService(ITemplateService templateService) : ICo
                Content = controllerTemplate.Render(model).TrimStart()
             });
             
-            // Если это просто Action (не явная команда/запрос), создаем для него Request DTO
+            // Generate Request DTOs for simple Action nodes
             var requestDtoTemplate = templateService.GetTemplate("RequestDto");
             foreach (var actionNode in connectedActionNodes.Where(n => n!.Type == NodeType.Action))
             {
@@ -68,22 +68,21 @@ public class ScribanCodeGeneratorService(ITemplateService templateService) : ICo
                     RelativePath = "DTOs",
                     Content = requestDtoTemplate.Render(new { project_name = projectName, name = actionName }).TrimStart()
                 });
+            }
 
-                var ext = actionNode!.Properties.GenerateFileExtension?.Trim() ?? ".g.cs";
-                if (ext.Equals(".cs", StringComparison.OrdinalIgnoreCase))
-                {
-                    files.Add(new GeneratedFile {
-                        FileName = $"{name}Controller.{actionName}.cs",
-                        RelativePath = "Controllers",
-                        Content = partialStubActionTemplate.Render(new {
-                            project_name = projectName,
-                            controller_name = name,
-                            name = actionName,
-                            verb = actionNode!.Properties.HttpVerb ?? "Post",
-                            request_type = $"{actionName}Request"
-                        }).TrimStart()
-                    });
-                }
+            // Generate a single partial stub file for all actions that require human implementation
+            var actionsToGenerate = actions.Where(a => a.generate_cs && !a.is_cqrs).ToList();
+            if (actionsToGenerate.Any())
+            {
+                files.Add(new GeneratedFile {
+                    FileName = $"{name}Controller.cs",
+                    RelativePath = "Controllers",
+                    Content = partialStubControllerTemplate.Render(new {
+                        project_name = projectName,
+                        controller_name = name,
+                        actions_to_generate = actionsToGenerate
+                    }).TrimStart()
+                });
             }
         }
 
@@ -101,10 +100,10 @@ public class ScribanCodeGeneratorService(ITemplateService templateService) : ICo
 
             files.Add(new GeneratedFile {
                FileName = $"{name}.g.cs",
-               RelativePath = isQuery ? "Queries" : "Commands",
+               RelativePath = isQuery ? "Handlers/Queries" : "Handlers/Commands",
                Content = cqrsTemplate.Render(new { 
                    project_name = projectName, 
-                   folder = isQuery ? "Queries" : "Commands",
+                   folder = isQuery ? "Handlers.Queries" : "Handlers.Commands",
                    name = name, 
                    suffix = isQuery ? "Query" : "Command",
                    return_type = returnType,
@@ -116,10 +115,10 @@ public class ScribanCodeGeneratorService(ITemplateService templateService) : ICo
             {
                 files.Add(new GeneratedFile {
                    FileName = $"{name}.cs",
-                   RelativePath = isQuery ? "Queries" : "Commands",
+                   RelativePath = isQuery ? "Handlers/Queries" : "Handlers/Commands",
                    Content = partialStubCqrsTemplate.Render(new { 
                        project_name = projectName, 
-                       folder = isQuery ? "Queries" : "Commands",
+                       folder = isQuery ? "Handlers.Queries" : "Handlers.Commands",
                        name = name, 
                        suffix = isQuery ? "Query" : "Command",
                        return_type = returnType 

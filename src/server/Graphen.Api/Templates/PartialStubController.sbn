@@ -1,0 +1,21 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+using {{ project_name }}.DTOs;
+using {{ project_name }}.Handlers.Commands;
+using {{ project_name }}.Handlers.Queries;
+
+namespace {{ project_name }}.Controllers;
+
+public sealed partial class {{ controller_name }}Controller
+{
+{{~ for action in actions_to_generate ~}}
+    public partial async Task<IActionResult> {{ action.name }}({{ action.request_type }} request, CancellationToken ct)
+    {
+        // TODO: Реализуйте метод контроллера {{ action.name }}
+        throw new NotImplementedException();
+    }
+
+{{~ end ~}}
+}
