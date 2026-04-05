@@ -51,6 +51,31 @@ export async function createEditor(
 
   AreaExtensions.simpleNodesOrder(area);
 
+  // Tag rendered DOM elements with data-node-type for CSS styling
+  area.addPipe((ctx) => {
+    if (ctx.type === 'render') {
+      const renderData = ctx.data as { type: string; payload: { id: string } };
+      if (renderData.type === 'node') {
+        const nodeId = renderData.payload.id;
+        const node = editor.getNode(nodeId);
+        if (node && 'nodeType' in node) {
+          requestAnimationFrame(() => {
+            const view = area.nodeViews.get(nodeId);
+            if (view) {
+              const el = view.element;
+              if (el) {
+                const nodeType = (node as any).nodeType as string;
+                el.setAttribute('data-node-type', nodeType);
+              }
+            }
+          });
+        }
+      }
+    }
+    return ctx;
+  });
+
+
   function createNodeFromGraphNode(gn: GraphNode): AppNode {
     switch (gn.type) {
       case NodeType.Controller:

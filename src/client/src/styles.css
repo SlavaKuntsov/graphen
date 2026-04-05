@@ -67,3 +67,237 @@ input, select, textarea, button {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+
+/* ================== RETE OVERRIDES (COMPACT COLORED NODES) ================== */
+
+/* Base node style - the custom element host */
+[data-testid="node"] {
+  display: block !important;
+  border-radius: 10px !important;
+  backdrop-filter: blur(16px) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  min-width: 190px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: rgba(30, 34, 44, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  outline: none !important;
+}
+
+/* Reset Rete's inner .node div (from Angular classic preset) — 
+   this is the actual culprit of the rectangular border */
+[data-testid="node"] .node,
+[data-testid="node"] > .node {
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+/* Also handle selected state from Rete's selection system */
+[data-testid="node"] .node.selected {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove any host-level selected/focused outlines */
+[data-testid="node"].selected,
+[data-testid="node"]:focus,
+[data-testid="node"]:focus-visible {
+  outline: none !important;
+}
+
+[data-testid="node"]:hover {
+  transform: translateY(-2px) scale(1.01);
+}
+
+/* --- Node Header --- */
+[data-testid="title"] {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 10px 14px !important;
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.2px !important;
+  border-radius: 10px 10px 0 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  position: relative !important;
+  text-transform: none !important;
+  color: #fff !important;
+}
+
+/* --- Round Icon Badge --- */
+[data-testid="title"]::before {
+  content: '';
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-size: 14px;
+  background-position: center;
+  background-repeat: no-repeat;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  background-color: rgba(148, 163, 184, 0.4);
+}
+
+/* --- Input / Output Areas --- */
+[data-testid="node"] .output,
+[data-testid="node"] .input {
+  padding: 8px 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+  position: relative !important;
+}
+
+[data-testid="node"] .input {
+  justify-content: flex-start !important;
+}
+
+/* --- Labels --- */
+[data-testid="node"] .input-title,
+[data-testid="node"] .output-title {
+  color: rgba(255, 255, 255, 0.55) !important;
+  font-size: 10.5px !important;
+  font-weight: 500 !important;
+  text-transform: capitalize !important;
+  letter-spacing: 0.4px !important;
+}
+
+/* --- Sockets (small dots) --- */
+.rete-container .socket {
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 50% !important;
+  border: 2px solid rgba(255, 255, 255, 0.45) !important;
+  background: rgba(15, 17, 22, 0.8) !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.04) !important;
+}
+
+[data-testid="node"]:hover .socket {
+  border-color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.rete-container .socket:hover {
+  transform: scale(1.6) !important;
+  background: #fff !important;
+  border-color: #fff !important;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.4) !important;
+}
+
+/* =============================================
+   TYPE-SPECIFIC COLORED BACKGROUNDS
+   ============================================= */
+
+/* --- Controller (Indigo / Purple) --- */
+[data-node-type="Controller"] .node {
+  background: rgba(99, 102, 241, 0.18) !important;
+  border: 1px solid rgba(99, 102, 241, 0.35) !important;
+}
+[data-node-type="Controller"] [data-testid="title"] {
+  background: rgba(99, 102, 241, 0.12) !important;
+}
+[data-node-type="Controller"] [data-testid="title"]::before {
+  background-color: #6366f1;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z'/%3E%3C/svg%3E");
+}
+[data-node-type="Controller"] .socket {
+  border-color: rgba(99, 102, 241, 0.7) !important;
+}
+[data-node-type="Controller"]:hover .node {
+  box-shadow: 0 0 28px rgba(99, 102, 241, 0.25), 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+  border-color: rgba(99, 102, 241, 0.55) !important;
+}
+
+/* --- Command (Amber / Orange) --- */
+[data-node-type="CqrsCommand"] .node {
+  background: rgba(245, 158, 11, 0.14) !important;
+  border: 1px solid rgba(245, 158, 11, 0.3) !important;
+}
+[data-node-type="CqrsCommand"] [data-testid="title"] {
+  background: rgba(245, 158, 11, 0.1) !important;
+}
+[data-node-type="CqrsCommand"] [data-testid="title"]::before {
+  background-color: #f59e0b;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M7 2v11h3v9l7-12h-4l4-8z'/%3E%3C/svg%3E");
+}
+[data-node-type="CqrsCommand"] .socket {
+  border-color: rgba(245, 158, 11, 0.7) !important;
+}
+[data-node-type="CqrsCommand"]:hover .node {
+  box-shadow: 0 0 28px rgba(245, 158, 11, 0.2), 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+  border-color: rgba(245, 158, 11, 0.5) !important;
+}
+
+/* --- Query (Emerald / Teal) --- */
+[data-node-type="CqrsQuery"] .node {
+  background: rgba(16, 185, 129, 0.14) !important;
+  border: 1px solid rgba(16, 185, 129, 0.3) !important;
+}
+[data-node-type="CqrsQuery"] [data-testid="title"] {
+  background: rgba(16, 185, 129, 0.1) !important;
+}
+[data-node-type="CqrsQuery"] [data-testid="title"]::before {
+  background-color: #10b981;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3C/svg%3E");
+}
+[data-node-type="CqrsQuery"] .socket {
+  border-color: rgba(16, 185, 129, 0.7) !important;
+}
+[data-node-type="CqrsQuery"]:hover .node {
+  box-shadow: 0 0 28px rgba(16, 185, 129, 0.2), 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+  border-color: rgba(16, 185, 129, 0.5) !important;
+}
+
+/* --- Action (Rose / Red) --- */
+[data-node-type="Action"] .node {
+  background: rgba(239, 68, 68, 0.14) !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+}
+[data-node-type="Action"] [data-testid="title"] {
+  background: rgba(239, 68, 68, 0.1) !important;
+}
+[data-node-type="Action"] [data-testid="title"]::before {
+  background-color: #ef4444;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z'/%3E%3C/svg%3E");
+}
+[data-node-type="Action"] .socket {
+  border-color: rgba(239, 68, 68, 0.7) !important;
+}
+[data-node-type="Action"]:hover .node {
+  box-shadow: 0 0 28px rgba(239, 68, 68, 0.2), 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+  border-color: rgba(239, 68, 68, 0.5) !important;
+}
+
+/* =============================================
+   CONNECTION PATHS
+   ============================================= */
+.rete-container .connection .main-path {
+  stroke: rgba(148, 163, 184, 0.45) !important;
+  stroke-width: 2.5px !important;
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: drawLine 1s ease forwards;
+  filter: drop-shadow(0 0 4px rgba(148, 163, 184, 0.15));
+  transition: stroke 0.2s ease;
+}
+
+.rete-container .connection:hover .main-path {
+  stroke: rgba(99, 102, 241, 0.7) !important;
+  filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.3));
+}
+
+@keyframes drawLine {
+  to { stroke-dashoffset: 0; }
+}
