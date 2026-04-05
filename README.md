@@ -22,7 +22,7 @@
 | Backend | ASP.NET Core Web API | .NET 10 |
 | Шаблоны | Scriban (`.sbn`) | 7.0.6 |
 | API Docs | OpenAPI + Scalar | — |
-| Frontend | Angular + Rete.js v2 | 20+ (планируется) |
+| Frontend | Angular + Rete.js v2 | 20+ |
 | Будущее | Roslyn | — |
 
 ## Архитектура
@@ -177,7 +177,7 @@ graphen/
 │   │       │   └── Program.sbn
 │   │       └── Program.cs
 │   │
-│   ├── client/                          # (планируется) Angular-фронтенд
+│   ├── client/                          # Angular-фронтенд (Rete.js v2)
 │   │
 │   └── GeneratedOutput/                 # Дефолтный вывод (в .gitignore)
 │       └── {ProjectName}/
@@ -231,10 +231,10 @@ graphen/
 - [x] Генерация CQRS Commands/Queries (sealed class + record + Handler)
 - [x] Генерация Request DTO для Action-нод
 - [x] Гибкий поиск имён (name → className → methodName)
+- [x] **Frontend**: Angular 20+ визуальный редактор графов (Rete.js v2) с премиум-дизайном и интеллектуальным авто-лейаутом
 
 ### Планируется
 
-- [ ] **Frontend**: Angular + визуальный редактор графов (Rete.js v2)
 - [ ] Новые типы нод: Entity (с полями), Middleware, DbContext, Service
 - [ ] CRUD-автогенерация: CrudCreate/Read/Update/Delete → полный Handler
 - [ ] Генерация Entity + EF Core конфигурации
@@ -242,4 +242,3 @@ graphen/
 - [ ] Обратный парсинг: код → граф (импорт существующего проекта)
 - [ ] Выгрузка как .zip-архив
 - [ ] Валидация графа
-- [ ] AI-ассистент в редакторе
