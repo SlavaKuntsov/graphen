@@ -7,6 +7,7 @@ import {
   inject,
   Injector,
   OnDestroy,
+  AfterViewInit,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { EditorInstance, createEditor } from './editor/editor';
@@ -27,7 +28,7 @@ import { NodeType } from './models/graph.models';
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
-export class App implements OnDestroy {
+export class App implements OnDestroy, AfterViewInit {
   private readonly injector = inject(Injector);
   private readonly api = inject(GraphApiService);
 
@@ -62,6 +63,151 @@ export class App implements OnDestroy {
     { value: NodeType.Action, label: 'Action', icon: '🎯' },
   ];
 
+  /** 
+   * КФИГУРАЦИЯ СЕТКИ (Расстояния между нодами)
+   * РЕДАКТИРУЙТЕ ТУТ:
+   */
+  private readonly H_SPACING = 500; // По горизонтали (от колонки к колонке)
+  private readonly V_SPACING = 250; // По вертикали (между нодами в колонке)
+
+  async autoArrange(): Promise<void> {
+    if (!this.editorInstance) return;
+    
+    const editor = this.editorInstance.editor;
+    const nodes = editor.getNodes();
+    const connections = editor.getConnections();
+
+    // 1. Build adjacency list and find roots
+    const inputs = new Map<string, string[]>();
+    const outputs = new Map<string, string[]>();
+    
+    nodes.forEach(n => {
+      inputs.set(n.id, []);
+      outputs.set(n.id, []);
+    });
+
+    connections.forEach(c => {
+      inputs.get(c.target)?.push(c.source);
+      outputs.get(c.source)?.push(c.target);
+    });
+
+    // 2. Assign depth (longest path from root)
+    const depths = new Map<string, number>();
+    nodes.forEach(n => depths.set(n.id, 0)); // default to 0
+
+    // simple topological depth assignment
+    let changed = true;
+    while(changed) {
+      changed = false;
+      for (const n of nodes) {
+        const inNodes = inputs.get(n.id) || [];
+        if (inNodes.length > 0) {
+          const maxParentDepth = Math.max(...inNodes.map(p => depths.get(p) || 0));
+          if (depths.get(n.id) !== maxParentDepth + 1) {
+            depths.set(n.id, maxParentDepth + 1);
+            changed = true;
+          }
+        }
+      }
+    }
+
+    // 3. Group by depth, then by nodeType
+    const columns = new Map<number, AppNode[]>();
+    nodes.forEach(n => {
+      const d = depths.get(n.id) || 0;
+      if (!columns.has(d)) columns.set(d, []);
+      columns.get(d)?.push(n as AppNode);
+    });
+
+    const targetPositions = new Map<string, {x: number, y: number}>();
+
+    for (const [depth, colNodes] of columns.entries()) {
+      // Sort nodes inside column by type (to group same types together)
+      colNodes.sort((a, b) => a.nodeType.localeCompare(b.nodeType));
+      
+      let currentY = 50;
+      for (let i = 0; i < colNodes.length; i++) {
+        const node = colNodes[i];
+        
+        // Add a bit of extra space if type changes
+        if (i > 0 && colNodes[i].nodeType !== colNodes[i-1].nodeType) {
+          currentY += 50; // extra gap between different types
+        }
+
+        const x = 50 + depth * this.H_SPACING;
+        const y = currentY;
+        
+        targetPositions.set(node.id, { x, y });
+        currentY += this.V_SPACING;
+      }
+    }
+    
+    // Animate smoothly
+    const viewPositions = new Map<string, {x: number, y: number}>();
+    for (const node of nodes) {
+      const view = this.editorInstance.area.nodeViews.get(node.id);
+      viewPositions.set(node.id, view ? { x: view.position.x, y: view.position.y } : { x: 0, y: 0 });
+    }
+
+    const durationMs = 600;
+    const startTime = performance.now();
+    
+    // 4. Camera target setup
+    const rootNodes = nodes.filter(n => (n as any).nodeType === NodeType.Controller);
+    const focusNode = rootNodes[0] || nodes[0];
+    const focusTarget = focusNode ? targetPositions.get(focusNode.id)! : { x: 0, y: 0 };
+
+    const targetZoom = 0.75;
+    const paddingLeft = 100; // Левее контроллер
+    const paddingTop = 60;
+    
+    const targetAreaX = paddingLeft - focusTarget.x * targetZoom;
+    const targetAreaY = paddingTop - focusTarget.y * targetZoom;
+    const startTransform = { ...this.editorInstance.area.area.transform };
+
+    await new Promise<void>(resolve => {
+      const animate = (time: number) => {
+        const progress = Math.min((time - startTime) / durationMs, 1);
+        const ease = 1 - Math.pow(1 - progress, 4); // easeOutQuart
+
+        for (const [id, target] of targetPositions.entries()) {
+          const start = viewPositions.get(id)!;
+          this.editorInstance!.area.translate(id, {
+            x: start.x + (target.x - start.x) * ease,
+            y: start.y + (target.y - start.y) * ease
+          });
+        }
+        
+        // Synced camera movement
+        const currentZoom = startTransform.k + (targetZoom - startTransform.k) * ease;
+        const currentX = startTransform.x + (targetAreaX - startTransform.x) * ease;
+        const currentY = startTransform.y + (targetAreaY - startTransform.y) * ease;
+        
+        this.editorInstance!.area.area.zoom(currentZoom, 0, 0);
+        this.editorInstance!.area.area.translate(currentX, currentY);
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          resolve();
+        }
+      };
+      requestAnimationFrame(animate);
+    });
+
+    this.toast('Граф упорядочен и фокус наведен', 'success');
+  }
+
+  ngAfterViewInit(): void {
+    // Automatically load project on startup (backend resolves default path if empty)
+    setTimeout(() => {
+      this.onLoad().catch(() => {
+        // If the default load totally fails, we could init empty
+        this.onInitEmpty();
+      });
+    }, 100);
+  }
+
   ngOnDestroy(): void {
     this.editorInstance?.destroy();
   }
@@ -84,8 +230,13 @@ export class App implements OnDestroy {
         },
         error: (err) => {
           this.isLoading.set(false);
-          const msg = err.error?.message ?? err.message ?? 'Ошибка загрузки';
-          this.toast(msg, 'error');
+          // If the default project wasn't found (e.g. clean start), fallback to empty
+          if (err.status === 404) {
+            this.onInitEmpty();
+          } else {
+            const msg = err.error?.message ?? err.message ?? 'Ошибка загрузки';
+            this.toast(msg, 'error');
+          }
         },
       });
     } catch {
@@ -149,10 +300,23 @@ export class App implements OnDestroy {
     }
 
     await this.editorInstance.editor.addNode(node);
-    await this.editorInstance.area.translate(node.id, {
-      x: 100 + Math.random() * 300,
-      y: 100 + Math.random() * 200,
-    });
+    
+    // Position the new node relative to selected parent or at offset
+    const selected = this.selectedNode();
+    if (selected && this.editorInstance) {
+      const view = this.editorInstance.area.nodeViews.get(selected.id);
+      if (view) {
+        await this.editorInstance.area.translate(node.id, {
+          x: view.position.x + 350,
+          y: view.position.y
+        });
+      }
+    } else {
+      await this.editorInstance.area.translate(node.id, {
+        x: 100 + Math.random() * 50,
+        y: 100 + Math.random() * 50,
+      });
+    }
 
     this.addNodeName.set('');
     this.toast(`Нода "${name}" добавлена`, 'success');
@@ -225,9 +389,31 @@ export class App implements OnDestroy {
 
     this.editorInstance = await createEditor(el, this.injector);
 
-    // Listen for node selection (clicks)
+    // Track pointer movement for click vs drag detection
+    let startX = 0;
+    let startY = 0;
+
     this.editorInstance.area.addPipe((ctx) => {
-      if (ctx.type === 'nodepicked') {
+      if (ctx.type === 'pointerdown') {
+        const event = ctx.data.event as PointerEvent;
+        startX = event.clientX;
+        startY = event.clientY;
+      } else if (ctx.type === 'pointerup') {
+        const event = ctx.data.event as PointerEvent;
+        const dx = Math.abs(event.clientX - startX);
+        const dy = Math.abs(event.clientY - startY);
+        const isClick = dx < 10 && dy < 10; // Threshold for a "click"
+
+        if (isClick && this.editorInstance) {
+          // If a click occurred on the background (not a node), close sidebar
+          const isNodeClick = (event.target as HTMLElement).closest('.node');
+          if (!isNodeClick) {
+            this.closeSidebar();
+            // No need to update area if we're just closing sidebar, 
+            // but we could if we had visual selection in the canvas
+          }
+        }
+      } else if (ctx.type === 'nodepicked') {
         const nodeId = ctx.data.id;
         const node = this.editorInstance!.editor.getNode(nodeId);
         if (node) {

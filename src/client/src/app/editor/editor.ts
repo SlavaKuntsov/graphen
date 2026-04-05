@@ -26,6 +26,7 @@ export interface EditorInstance {
   destroy: () => void;
   exportGraph: (projectName: string, targetPath?: string) => ProjectGraph;
   importGraph: (graph: ProjectGraph) => Promise<void>;
+  zoomAt: (nodes?: any[], duration?: number) => Promise<void>;
 }
 
 export async function createEditor(
@@ -167,5 +168,53 @@ export async function createEditor(
     destroy: () => area.destroy(),
     exportGraph,
     importGraph,
+    zoomAt: async (nodes?: any[], duration: number = 600) => {
+      const targetNodes = nodes && nodes.length > 0 ? nodes : editor.getNodes();
+      if (targetNodes.length > 0) {
+        const focusNode = targetNodes[0];
+        const view = area.nodeViews.get(focusNode.id);
+        if (!view) return;
+
+        // Configuration
+        const targetZoom = 0.75; 
+        
+        // We want the node to appear at the top-left of the screen, with a small padding
+        const paddingLeft = 320; // Enough space so it's clearly right of the sidebar
+        const paddingTop = 60; // Just slightly below header
+
+        const canvasX = view.position.x;
+        const canvasY = view.position.y;
+
+        // Calculate expected final transform
+        const tx = paddingLeft - canvasX * targetZoom;
+        const ty = paddingTop - canvasY * targetZoom;
+
+        // Smoothly animate the camera transform
+        const startTransform = { ...area.area.transform };
+        const startTime = performance.now();
+        
+        await new Promise<void>(resolve => {
+          const animate = async (time: number) => {
+            const progress = Math.min((time - startTime) / duration, 1);
+            const ease = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+
+            const currentZoom = startTransform.k + (targetZoom - startTransform.k) * ease;
+            const currentX = startTransform.x + (tx - startTransform.x) * ease;
+            const currentY = startTransform.y + (ty - startTransform.y) * ease;
+
+            // Apply scale at 0,0 to avoid any compound origin shifting, then absolute translate
+            await area.area.zoom(currentZoom, 0, 0); 
+            await area.area.translate(currentX, currentY);
+
+            if (progress < 1) {
+              requestAnimationFrame(animate);
+            } else {
+              resolve();
+            }
+          };
+          requestAnimationFrame(animate);
+        });
+      }
+    },
   };
 }

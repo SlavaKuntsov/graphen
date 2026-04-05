@@ -9,7 +9,7 @@
 
     <div class="header-controls">
       <div class="path-group">
-        <label for="projectPath">Путь к проекту</label>
+        <!-- <label for="projectPath">Путь к проекту</label> -->
         <input
           id="projectPath"
           type="text"
@@ -74,6 +74,9 @@
             (ngModelChange)="projectName.set($event)"
           />
         </div>
+        <button class="btn btn-outline" style="margin-bottom: 8px; width: 100%;" (click)="autoArrange()">
+          ✨ Авто-выравнивание
+        </button>
         <button
           class="btn btn-generate"
           (click)="onGenerate()"

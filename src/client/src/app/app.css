@@ -504,32 +504,145 @@
   50% { transform: scale(1.05); opacity: 1; }
 }
 
-/* ================== RETE OVERRIDES ================== */
+/* ================== RETE OVERRIDES (PREMIUM NODES) ================== */
 .rete-container .node {
-  background: var(--bg-glass) !important;
-  border: 1px solid var(--border-bright) !important;
-  border-radius: var(--radius) !important;
-  backdrop-filter: blur(8px) !important;
-  box-shadow: var(--shadow) !important;
+  background: rgba(24, 27, 34, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  backdrop-filter: blur(20px) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  min-width: 240px !important;
+  padding: 0 !important;
+  overflow: visible !important;
 }
 
-.rete-container .node.selected {
-  border-color: var(--accent) !important;
-  box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.3), var(--shadow) !important;
+.rete-container .node:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
 }
 
+/* Node Header Styling */
 .rete-container .node .title {
-  font-family: var(--font-body) !important;
-  font-weight: 600 !important;
-  font-size: 13px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  padding: 14px 16px !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.8px !important;
+  border-radius: 12px 12px 0 0 !important;
+  position: relative !important;
 }
 
-.rete-container .connection .main-path {
-  stroke: var(--accent-dim) !important;
-  stroke-width: 2px !important;
+/* Node Icon Base */
+.rete-container .node .title::before {
+  content: '';
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background-size: 18px;
+  background-position: center;
+  background-repeat: no-repeat;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 
+/* --- Type Specific Styles --- */
+
+/* Controller (Purple) */
+.rete-container .node[title^="Controller"] { border-left: 4px solid var(--accent) !important; }
+.rete-container .node[title^="Controller"] .title::before { 
+  background-color: var(--accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M3 13h1v7H3v-7zm7 0h1v7h-1v-7zm7 0h1v7h-1v-7zM3 4h1v7H3V4zm7 0h1v7h-1V4zm7 0h1v7h-1V4z'/%3E%3C/svg%3E");
+}
+.rete-container .node[title^="Controller"]:hover { box-shadow: 0 0 30px rgba(108, 92, 231, 0.3) !important; }
+
+/* Command (Yellow/Orange) */
+.rete-container .node[title^="Command"] { border-left: 4px solid var(--warning) !important; }
+.rete-container .node[title^="Command"] .title::before { 
+  background-color: var(--warning);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M13 3l-4 7h3v11l4-7h-3l4-7z'/%3E%3C/svg%3E");
+}
+.rete-container .node[title^="Command"]:hover { box-shadow: 0 0 30px rgba(255, 192, 72, 0.2) !important; }
+
+/* Query (Green) */
+.rete-container .node[title^="Query"] { border-left: 4px solid var(--success) !important; }
+.rete-container .node[title^="Query"] .title::before { 
+  background-color: var(--success);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3C/svg%3E");
+}
+.rete-container .node[title^="Query"]:hover { box-shadow: 0 0 30px rgba(0, 214, 143, 0.2) !important; }
+
+/* Action (Red/Pink) */
+.rete-container .node[title^="Action"] { border-left: 4px solid var(--danger) !important; }
+.rete-container .node[title^="Action"] .title::before { 
+  background-color: var(--danger);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M19 3H5c-1.1 0-2 .9-2 2v14l4-4h12c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2zm0-4H7V7h10v2z'/%3E%3C/svg%3E");
+}
+.rete-container .node[title^="Action"]:hover { box-shadow: 0 0 30px rgba(255, 71, 87, 0.2) !important; }
+
+/* Outputs and Inputs Area */
+.rete-container .node .output,
+.rete-container .node .input {
+  padding: 12px 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 12px !important;
+  position: relative !important;
+}
+
+.rete-container .node .input {
+  justify-content: flex-start !important;
+}
+
+/* Sockets Styling */
 .rete-container .socket {
-  background: var(--accent) !important;
-  border: 2px solid var(--accent-bright) !important;
+  background: var(--bg-primary) !important;
+  border: 2px solid var(--text-muted) !important;
+  width: 12px !important;
+  height: 12px !important;
+  transition: all 0.2s !important;
+  box-shadow: 0 0 0 4px rgba(255,255,255,0.03) !important;
+}
+
+.rete-container .node:hover .socket {
+  border-color: var(--accent-bright) !important;
+  box-shadow: 0 0 8px var(--accent) !important;
+}
+
+.rete-container .socket:hover {
+  transform: scale(1.5) !important;
+  background: var(--accent-bright) !important;
+  border-color: #fff !important;
+}
+
+/* Component Labels inside node */
+.rete-container .node .input-title,
+.rete-container .node .output-title {
+  color: var(--text-secondary) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 1px !important;
+}
+
+/* Connection Path Styling */
+.rete-container .connection .main-path {
+  stroke: var(--accent) !important;
+  stroke-width: 3px !important;
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: drawLine 1.5s ease forwards;
+  filter: drop-shadow(0 0 8px var(--accent-dim));
+}
+
+@keyframes drawLine {
+  to { stroke-dashoffset: 0; }
 }
