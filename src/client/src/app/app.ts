@@ -64,85 +64,186 @@ export class App implements OnDestroy, AfterViewInit {
   ];
 
   /** 
-   * КФИГУРАЦИЯ СЕТКИ (Расстояния между нодами)
+   * КОНФИГУРАЦИЯ СЕТКИ (Расстояния между нодами)
    * РЕДАКТИРУЙТЕ ТУТ:
    */
-  private readonly H_SPACING = 500; // По горизонтали (от колонки к колонке)
-  private readonly V_SPACING = 250; // По вертикали (между нодами в колонке)
+  private readonly H_SPACING = 400; // По горизонтали (от колонки к колонке)
+  private readonly V_SPACING = 220; // По вертикали (между нодами в колонке)
+  private readonly BAND_GAP = 80;   // Дополнительный отступ между полосами контроллеров
+
+  /**
+   * Логический порядок колонок по типу:
+   * 0 — Controllers
+   * 1 — Actions
+   * 2 — CQRS (Commands & Queries)
+   */
+  private getLogicalColumn(nodeType: NodeType): number {
+    switch (nodeType) {
+      case NodeType.Controller: return 0;
+      case NodeType.Action:     return 1;
+      case NodeType.CqrsCommand:
+      case NodeType.CqrsQuery:  return 2;
+      default: return 0;
+    }
+  }
 
   async autoArrange(): Promise<void> {
     if (!this.editorInstance) return;
     
     const editor = this.editorInstance.editor;
-    const nodes = editor.getNodes();
+    const nodes = editor.getNodes() as AppNode[];
     const connections = editor.getConnections();
 
-    // 1. Build adjacency list and find roots
-    const inputs = new Map<string, string[]>();
-    const outputs = new Map<string, string[]>();
+    // 1. Build connection map: Controller → connected child nodes
+    const childrenOf = new Map<string, Set<string>>();  // controllerId → Set of child node IDs
     
-    nodes.forEach(n => {
-      inputs.set(n.id, []);
-      outputs.set(n.id, []);
-    });
+    for (const conn of connections) {
+      const source = editor.getNode(conn.source) as AppNode | undefined;
+      const target = editor.getNode(conn.target) as AppNode | undefined;
+      if (!source || !target) continue;
 
-    connections.forEach(c => {
-      inputs.get(c.target)?.push(c.source);
-      outputs.get(c.source)?.push(c.target);
-    });
-
-    // 2. Assign depth (longest path from root)
-    const depths = new Map<string, number>();
-    nodes.forEach(n => depths.set(n.id, 0)); // default to 0
-
-    // simple topological depth assignment
-    let changed = true;
-    while(changed) {
-      changed = false;
-      for (const n of nodes) {
-        const inNodes = inputs.get(n.id) || [];
-        if (inNodes.length > 0) {
-          const maxParentDepth = Math.max(...inNodes.map(p => depths.get(p) || 0));
-          if (depths.get(n.id) !== maxParentDepth + 1) {
-            depths.set(n.id, maxParentDepth + 1);
-            changed = true;
-          }
-        }
+      // Controller → child (Action or CQRS)
+      if (source.nodeType === NodeType.Controller) {
+        if (!childrenOf.has(source.id)) childrenOf.set(source.id, new Set());
+        childrenOf.get(source.id)!.add(target.id);
+      }
+      // child → Controller (reverse connection)
+      if (target.nodeType === NodeType.Controller) {
+        if (!childrenOf.has(target.id)) childrenOf.set(target.id, new Set());
+        childrenOf.get(target.id)!.add(source.id);
       }
     }
 
-    // 3. Group by depth, then by nodeType
-    const columns = new Map<number, AppNode[]>();
-    nodes.forEach(n => {
-      const d = depths.get(n.id) || 0;
-      if (!columns.has(d)) columns.set(d, []);
-      columns.get(d)?.push(n as AppNode);
+    // 2. Determine which logical columns are actually populated
+    const hasActions = nodes.some(n => n.nodeType === NodeType.Action);
+    const hasCqrs = nodes.some(n => 
+      n.nodeType === NodeType.CqrsCommand || n.nodeType === NodeType.CqrsQuery
+    );
+
+    // Build a map: logical column → physical X index (skipping empty columns)
+    const physicalColumn = new Map<number, number>();
+    let colIdx = 0;
+    physicalColumn.set(0, colIdx++); // Controllers always col 0
+    if (hasActions) physicalColumn.set(1, colIdx++);
+    if (hasCqrs) physicalColumn.set(2, colIdx++);
+
+    // 3. Group controllers and sort them alphabetically
+    const controllers = nodes
+      .filter(n => n.nodeType === NodeType.Controller)
+      .sort((a, b) => a.label.localeCompare(b.label));
+
+    // Track which CQRS/Action nodes are assigned to a controller
+    const assignedNodes = new Set<string>();
+
+    // 4. Build bands: each controller + its children
+    interface Band {
+      controller: AppNode;
+      actions: AppNode[];
+      cqrs: AppNode[];
+    }
+
+    const bands: Band[] = [];
+    for (const ctrl of controllers) {
+      const childIds = childrenOf.get(ctrl.id) || new Set();
+      const actions: AppNode[] = [];
+      const cqrs: AppNode[] = [];
+
+      for (const childId of childIds) {
+        const child = editor.getNode(childId) as AppNode | undefined;
+        if (!child) continue;
+        if (child.nodeType === NodeType.Action) {
+          actions.push(child);
+        } else if (child.nodeType === NodeType.CqrsCommand || child.nodeType === NodeType.CqrsQuery) {
+          cqrs.push(child);
+        }
+        assignedNodes.add(childId);
+      }
+
+      // Sort: Commands before Queries, then alphabetically
+      cqrs.sort((a, b) => {
+        if (a.nodeType !== b.nodeType) return a.nodeType.localeCompare(b.nodeType);
+        return a.label.localeCompare(b.label);
+      });
+      actions.sort((a, b) => a.label.localeCompare(b.label));
+
+      assignedNodes.add(ctrl.id);
+      bands.push({ controller: ctrl, actions, cqrs });
+    }
+
+    // 5. Collect orphan nodes (not assigned to any controller)
+    const orphanActions = nodes.filter(n => n.nodeType === NodeType.Action && !assignedNodes.has(n.id));
+    const orphanCqrs = nodes.filter(n => 
+      (n.nodeType === NodeType.CqrsCommand || n.nodeType === NodeType.CqrsQuery) && !assignedNodes.has(n.id)
+    ).sort((a, b) => {
+      if (a.nodeType !== b.nodeType) return a.nodeType.localeCompare(b.nodeType);
+      return a.label.localeCompare(b.label);
     });
 
+    // 6. Calculate positions band by band
     const targetPositions = new Map<string, {x: number, y: number}>();
+    let currentY = 50;
 
-    for (const [depth, colNodes] of columns.entries()) {
-      // Sort nodes inside column by type (to group same types together)
-      colNodes.sort((a, b) => a.nodeType.localeCompare(b.nodeType));
-      
-      let currentY = 50;
-      for (let i = 0; i < colNodes.length; i++) {
-        const node = colNodes[i];
-        
-        // Add a bit of extra space if type changes
-        if (i > 0 && colNodes[i].nodeType !== colNodes[i-1].nodeType) {
-          currentY += 50; // extra gap between different types
+    for (const band of bands) {
+      const ctrlX = 50 + (physicalColumn.get(0) ?? 0) * this.H_SPACING;
+      targetPositions.set(band.controller.id, { x: ctrlX, y: currentY });
+
+      // Place Actions in their column
+      const actionCol = physicalColumn.get(1);
+      if (actionCol !== undefined) {
+        const actionX = 50 + actionCol * this.H_SPACING;
+        let actionY = currentY;
+        for (const action of band.actions) {
+          targetPositions.set(action.id, { x: actionX, y: actionY });
+          actionY += this.V_SPACING;
         }
+      }
 
-        const x = 50 + depth * this.H_SPACING;
-        const y = currentY;
-        
-        targetPositions.set(node.id, { x, y });
-        currentY += this.V_SPACING;
+      // Place CQRS in their column
+      const cqrsCol = physicalColumn.get(2);
+      if (cqrsCol !== undefined) {
+        const cqrsX = 50 + cqrsCol * this.H_SPACING;
+        let cqrsY = currentY;
+        for (const cqrsNode of band.cqrs) {
+          targetPositions.set(cqrsNode.id, { x: cqrsX, y: cqrsY });
+          cqrsY += this.V_SPACING;
+        }
+      }
+
+      // Move Y down past the tallest sub-column in this band
+      const bandHeight = Math.max(
+        1,
+        band.actions.length,
+        band.cqrs.length
+      );
+      currentY += bandHeight * this.V_SPACING + this.BAND_GAP;
+    }
+
+    // 7. Place orphan nodes at the bottom
+    if (orphanActions.length > 0) {
+      const actionCol = physicalColumn.get(1);
+      if (actionCol !== undefined) {
+        const actionX = 50 + actionCol * this.H_SPACING;
+        for (const orphan of orphanActions) {
+          targetPositions.set(orphan.id, { x: actionX, y: currentY });
+          currentY += this.V_SPACING;
+        }
+      }
+    }
+
+    if (orphanCqrs.length > 0) {
+      const cqrsCol = physicalColumn.get(2);
+      if (cqrsCol !== undefined) {
+        const cqrsX = 50 + cqrsCol * this.H_SPACING;
+        // Start at the bottom of the last band for orphan CQRS
+        let orphanY = currentY;
+        for (const orphan of orphanCqrs) {
+          targetPositions.set(orphan.id, { x: cqrsX, y: orphanY });
+          orphanY += this.V_SPACING;
+        }
       }
     }
     
-    // Animate smoothly
+    // 8. Animate smoothly
     const viewPositions = new Map<string, {x: number, y: number}>();
     for (const node of nodes) {
       const view = this.editorInstance.area.nodeViews.get(node.id);
@@ -152,13 +253,12 @@ export class App implements OnDestroy, AfterViewInit {
     const durationMs = 600;
     const startTime = performance.now();
     
-    // 4. Camera target setup
-    const rootNodes = nodes.filter(n => (n as any).nodeType === NodeType.Controller);
-    const focusNode = rootNodes[0] || nodes[0];
+    // 9. Camera target — focus on first Controller
+    const focusNode = controllers[0] || nodes[0];
     const focusTarget = focusNode ? targetPositions.get(focusNode.id)! : { x: 0, y: 0 };
 
     const targetZoom = 0.75;
-    const paddingLeft = 100; // Левее контроллер
+    const paddingLeft = 100;
     const paddingTop = 60;
     
     const targetAreaX = paddingLeft - focusTarget.x * targetZoom;
@@ -301,22 +401,24 @@ export class App implements OnDestroy, AfterViewInit {
 
     await this.editorInstance.editor.addNode(node);
     
-    // Position the new node relative to selected parent or at offset
-    const selected = this.selectedNode();
-    if (selected && this.editorInstance) {
-      const view = this.editorInstance.area.nodeViews.get(selected.id);
-      if (view) {
-        await this.editorInstance.area.translate(node.id, {
-          x: view.position.x + 350,
-          y: view.position.y
-        });
+    // Position in the correct column based on node type
+    const col = this.getLogicalColumn(type);
+    const existingNodes = (this.editorInstance.editor.getNodes() as AppNode[])
+      .filter(n => n.id !== node.id && this.getLogicalColumn(n.nodeType) === col);
+    
+    // Find the bottom-most node in this column to place the new one below it
+    let maxY = 50 - this.V_SPACING; // Start position minus spacing (so first node = 50)
+    for (const existing of existingNodes) {
+      const view = this.editorInstance.area.nodeViews.get(existing.id);
+      if (view && view.position.y > maxY) {
+        maxY = view.position.y;
       }
-    } else {
-      await this.editorInstance.area.translate(node.id, {
-        x: 100 + Math.random() * 50,
-        y: 100 + Math.random() * 50,
-      });
     }
+
+    const x = 50 + col * this.H_SPACING;
+    const y = maxY + this.V_SPACING;
+
+    await this.editorInstance.area.translate(node.id, { x, y });
 
     this.addNodeName.set('');
     this.toast(`Нода "${name}" добавлена`, 'success');
