@@ -4,15 +4,12 @@ using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
 var services = builder.Services;
 
 services.AddProblemDetails();
 services.AddExceptions();
 
 services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 services.AddOpenApi();
 
 services.AddSingleton<ITemplateService, TemplateService>();
@@ -21,7 +18,6 @@ services.AddTransient<IProjectScaffoldService, DotnetCliScaffoldService>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
